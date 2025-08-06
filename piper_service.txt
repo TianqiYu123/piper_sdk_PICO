@@ -1,0 +1,19 @@
+sudo nano /etc/systemd/system/piper_service.service
+
+Paste the following content into the file, modifying the paths to match your setup:
+
+[Unit]
+Description=Run piper_web.py on startup
+After=network.target
+
+[Service]
+User=tq  # Replace with the user that should run the script
+WorkingDirectory=/home/tq/robotarm # Replace with the parent working folder
+ExecStart=/path/to/your/script/piper.sh # Replace with the full path to your script
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target|
+
+refer: https://blog.csdn.net/weixin_44359306/article/details/137054413
