@@ -23,21 +23,22 @@ done
 CONDA_EXECUTABLE=$(which conda)
 
 if [ -z "$CONDA_EXECUTABLE" ]; then
-  CONDA_DIR="$HOME/miniforge3"
-  if [ -d "$CONDA_DIR" ]; then
+  CONDA_DIR="/opt/anaconda3" # <--- Most common location, first try this!
+  if [ -d "$CONDA_DIR/bin" ]; then
         CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
   else
-    CONDA_DIR="$HOME/anaconda3" # or $HOME/miniconda3
-        if [ -d "$CONDA_DIR" ]; then
+    CONDA_DIR="/opt/miniconda3" # Next most common
+        if [ -d "$CONDA_DIR/bin" ]; then
           CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
         else
-          CONDA_DIR="$HOME/miniconda3"
-          if [ -d "$CONDA_DIR" ]; then
-            CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
-          else
-            echo "Error: Conda not found. Ensure conda is in your PATH or installed in a standard location."
-            exit 1
-          fi
+            CONDA_DIR="/usr/local/anaconda3"  # Possibly installed system-wide.
+            if [ -d "$CONDA_DIR/bin" ]; then
+                CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
+            else
+
+              echo "Error: Conda not found. Ensure conda is in your PATH or installed in a standard location."
+              exit 1
+            fi
         fi
   fi
 fi
@@ -76,6 +77,8 @@ if [ ! -f "$PYTHON_SCRIPT" ]; then
 fi
 
 while true; do
+    #python demo/V1/piper_disable.py
+    #sleep 5
     python "$PYTHON_SCRIPT"
     echo "Python script exited. Restarting..."
     # Optional: Add a delay before restarting
