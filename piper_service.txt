@@ -4,16 +4,23 @@ Paste the following content into the file, modifying the paths to match your set
 
 [Unit]
 Description=Run piper_web.py on startup
-After=network.target
+After=final.target
+Wants=final.target
 
 [Service]
-User=tq  # Replace with the user that should run the script
-WorkingDirectory=/home/tq/robotarm # Replace with the parent working folder
-ExecStart=/path/to/your/script/piper.sh # Replace with the full path to your script
+Environment="PATH=/home/tq/.local/bin:/home/tq/bin:/home/tq/miniforge3/bin:/hom>
+WorkingDirectory=/home/tq/robotarm/piper_sdk_PICO
+ExecStart= /home/tq/robotarm/piper_sdk_PICO/piper.sh
 Restart=on-failure
-RestartSec=10
+RestartSec=100
 
 [Install]
-WantedBy=multi-user.target|
+WantedBy=final.target
+
+
+sudo systemctl enable piper_service.service
+sudo systemctl start piper_service.service
+sudo systemctl status piper_service.service
+sudo journalctl -u piper_service.service
 
 refer: https://blog.csdn.net/weixin_44359306/article/details/137054413

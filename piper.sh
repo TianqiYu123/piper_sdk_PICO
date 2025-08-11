@@ -1,5 +1,5 @@
 #!/bin/bash
-
+sleep 30
 # 1. Determine the location of the script and the target directory
 SCRIPT_DIR=$(dirname "$0")  # Directory where this script resides
 TARGET_DIR="$SCRIPT_DIR" # Set target to the same dir as the script initially
@@ -21,6 +21,8 @@ done
 
 # 3. Find Conda Executable
 CONDA_EXECUTABLE=$(which conda)
+#CONDA_EXECUTABLE=/home/tq/miniforge3/condabin/conda
+
 
 if [ -z "$CONDA_EXECUTABLE" ]; then
   CONDA_DIR="/opt/anaconda3" # <--- Most common location, first try this!
