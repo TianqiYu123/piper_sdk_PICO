@@ -20,29 +20,24 @@ while true; do
 done
 
 # 3. Find Conda Executable
-CONDA_EXECUTABLE=$(which conda)
-#CONDA_EXECUTABLE=/home/tq/miniforge3/condabin/conda
-
+CONDA_EXECUTABLE=$(command -v conda 2>/dev/null || true)
 
 if [ -z "$CONDA_EXECUTABLE" ]; then
-  CONDA_DIR="/opt/anaconda3" # <--- Most common location, first try this!
-  if [ -d "$CONDA_DIR/bin" ]; then
-        CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
-  else
-    CONDA_DIR="/opt/miniconda3" # Next most common
-        if [ -d "$CONDA_DIR/bin" ]; then
-          CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
-        else
-            CONDA_DIR="/usr/local/anaconda3"  # Possibly installed system-wide.
-            if [ -d "$CONDA_DIR/bin" ]; then
-                CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
-            else
-
-              echo "Error: Conda not found. Ensure conda is in your PATH or installed in a standard location."
-              exit 1
-            fi
+    for CONDA_DIR in \
+        "$HOME/miniforge3" \
+        "$HOME/miniconda3" \
+        "$HOME/anaconda3" \
+        "/opt/miniforge3" \
+        "/opt/miniconda3" \
+        "/opt/anaconda3" \
+        "/usr/local/miniforge3" \
+        "/usr/local/miniconda3" \
+        "/usr/local/anaconda3"; do
+        if [ -x "$CONDA_DIR/bin/conda" ]; then
+            CONDA_EXECUTABLE="$CONDA_DIR/bin/conda"
+            break
         fi
-  fi
+    done
 fi
 
 if [ -z "$CONDA_EXECUTABLE" ]; then
@@ -51,7 +46,7 @@ if [ -z "$CONDA_EXECUTABLE" ]; then
 fi
 
 # 4. Check for Conda Environment
-conda env list | grep robotarm > /dev/null 2>&1
+"$CONDA_EXECUTABLE" env list | grep robotarm > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
     echo "Error: Conda environment 'robotarm' not found."

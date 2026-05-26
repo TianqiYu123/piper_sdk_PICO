@@ -27,7 +27,25 @@ python demo/meshcat/piper_web.py
 
 建议在 Ubuntu 18.04/20.04/22.04 上运行。机械臂控制依赖 SocketCAN，Windows 只适合阅读和修改代码，不适合直接控制 CAN 设备。
 
-需要安装系统工具。`can_activate.sh` 使用 `ip`、`ethtool`、`can-utils`、`sudo`、`awk`、`grep`；`can_config.sh` 还可能调用 `modprobe gs_usb`：
+推荐直接运行一键安装脚本。它只安装 `demo/meshcat/piper_web.py` 需要的依赖，不安装 `demo/PICO/` 旧实验脚本依赖：
+
+```bash
+bash install_meshcat_env.sh
+```
+
+脚本会安装/更新：
+
+- 系统工具：`can-utils`、`ethtool`、`iproute2`、`kmod` 等。
+- Conda 环境：默认创建或更新 `robotarm`。
+- Python 依赖：`numpy`、`scipy`、`pinocchio`、`transforms3d`、`meshcat-python`、`paho-mqtt`、`python-can`、`piper-sdk`、`typing-extensions`。
+
+如果机器上没有 conda，脚本会默认安装 Miniforge 到 `$HOME/miniforge3`。可以通过环境变量覆盖默认值：
+
+```bash
+ENV_NAME=robotarm PYTHON_VERSION=3.12 MINIFORGE_DIR="$HOME/miniforge3" bash install_meshcat_env.sh
+```
+
+下面是手动安装方式。`can_activate.sh` 使用 `ip`、`ethtool`、`can-utils`、`sudo`、`awk`、`grep`；`can_config.sh` 还可能调用 `modprobe gs_usb`：
 
 ```bash
 sudo apt update
