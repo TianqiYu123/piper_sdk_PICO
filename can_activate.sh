@@ -23,6 +23,7 @@ DEFAULT_CAN_NAME="${1:-can0}"
 
 # The default bitrate for a single CAN module can be set by the user via command-line parameters.
 DEFAULT_BITRATE="${2:-1000000}"
+CAN_RESTART_MS="${CAN_RESTART_MS:-100}"
 
 # USB hardware address (optional parameter)
 USB_ADDRESS="${3:-}"
@@ -112,12 +113,13 @@ fi
 
 # Check if the current interface is already activated.
 IS_LINK_UP=$(ip link show "$INTERFACE_NAME" | grep -q "UP" && echo "yes" || echo "no")
+CURRENT_CAN_STATE=$(ip -details link show "$INTERFACE_NAME" | grep -oP 'can state \K\S+' || true)
 
 # Retrieve the bitrate of the current interface.
 CURRENT_BITRATE=$(ip -details link show "$INTERFACE_NAME" | grep -oP 'bitrate \K\d+' || true)
 
-if [ "$IS_LINK_UP" == "yes" ] && [ "$CURRENT_BITRATE" -eq "$DEFAULT_BITRATE" ]; then
-    echo "Interface $INTERFACE_NAME is already activated with a bitrate of $DEFAULT_BITRATE."
+if [ "$IS_LINK_UP" == "yes" ] && [ "$CURRENT_BITRATE" = "$DEFAULT_BITRATE" ] && [ "$CURRENT_CAN_STATE" != "BUS-OFF" ]; then
+    echo "Interface $INTERFACE_NAME is already activated with a bitrate of $DEFAULT_BITRATE and state ${CURRENT_CAN_STATE:-unknown}."
     
     # Check if the interface name matches the default name.
     if [ "$INTERFACE_NAME" != "$DEFAULT_CAN_NAME" ]; then
@@ -132,16 +134,20 @@ if [ "$IS_LINK_UP" == "yes" ] && [ "$CURRENT_BITRATE" -eq "$DEFAULT_BITRATE" ]; 
 else
     # If the interface is not activated or the bitrate is different, configure it.
     if [ "$IS_LINK_UP" == "yes" ]; then
-        echo "Interface $INTERFACE_NAME is already activated, but the bitrate is $CURRENT_BITRATE, which does not match the set value of $DEFAULT_BITRATE."
+        if [ "$CURRENT_CAN_STATE" = "BUS-OFF" ]; then
+            echo "Interface $INTERFACE_NAME is BUS-OFF and will be reset."
+        else
+            echo "Interface $INTERFACE_NAME is already activated, but the bitrate is ${CURRENT_BITRATE:-unset}, which does not match the set value of $DEFAULT_BITRATE."
+        fi
     else
         echo "Interface $INTERFACE_NAME is not activated or bitrate is not set."
     fi
     
     # Set the interface bitrate and activate it.
     sudo_run ip link set "$INTERFACE_NAME" down
-    sudo_run ip link set "$INTERFACE_NAME" type can bitrate "$DEFAULT_BITRATE"
+    sudo_run ip link set "$INTERFACE_NAME" type can bitrate "$DEFAULT_BITRATE" restart-ms "$CAN_RESTART_MS"
     sudo_run ip link set "$INTERFACE_NAME" up
-    echo "Interface $INTERFACE_NAME has been reset to bitrate $DEFAULT_BITRATE and activated."
+    echo "Interface $INTERFACE_NAME has been reset to bitrate $DEFAULT_BITRATE, restart-ms $CAN_RESTART_MS, and activated."
     
     # Rename the interface to the default name.
     if [ "$INTERFACE_NAME" != "$DEFAULT_CAN_NAME" ]; then

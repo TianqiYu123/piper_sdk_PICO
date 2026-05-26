@@ -151,6 +151,18 @@ bash piper.sh
 - 激活 `robotarm` conda 环境。
 - 循环运行 `demo/meshcat/piper_web.py`，脚本退出后会自动重启。
 
+如果启动后出现 `SEND_MESSAGE_FAILED (100017)`、自动使能超时，先检查 CAN 状态：
+
+```bash
+ip -details -statistics link show can0
+```
+
+如果看到 `can state BUS-OFF`，尤其是 `berr-counter tx` 很高，说明 Jetson 已经在发 CAN 帧，但总线上没有节点 ACK。优先检查机械臂供电/急停、CANH/CANL/GND 接线、终端电阻、波特率是否为 `1000000`，以及是否接到了正确的 CAN 口。修好硬件链路后重新执行：
+
+```bash
+bash can_activate.sh can0 1000000
+```
+
 ## MQTT 控制
 
 当前主控脚本使用硬编码 MQTT 配置：
@@ -221,6 +233,12 @@ PICO 模式会把左手坐标系转换为右手坐标系，并在 `trigger = 1` 
 
 ```bash
 bash can_activate.sh can0 1000000
+```
+
+默认会设置 `restart-ms 100`，用于从短暂的 bus-off 状态自动恢复。可以用环境变量调整：
+
+```bash
+CAN_RESTART_MS=200 bash can_activate.sh can0 1000000
 ```
 
 非交互 SSH 下可以这样执行：
