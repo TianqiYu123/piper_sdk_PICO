@@ -27,14 +27,14 @@ python demo/meshcat/piper_web.py
 
 建议在 Ubuntu 18.04/20.04/22.04 上运行。机械臂控制依赖 SocketCAN，Windows 只适合阅读和修改代码，不适合直接控制 CAN 设备。
 
-需要安装系统工具：
+需要安装系统工具。`can_activate.sh` 使用 `ip`、`ethtool`、`can-utils`、`sudo`、`awk`、`grep`；`can_config.sh` 还可能调用 `modprobe gs_usb`：
 
 ```bash
 sudo apt update
-sudo apt install can-utils ethtool iproute2
+sudo apt install can-utils ethtool iproute2 kmod
 ```
 
-当前 `piper.sh` 会查找并激活名为 `robotarm` 的 conda 环境。建议按这个名字创建环境：
+当前 `piper.sh` 会查找并激活名为 `robotarm` 的 conda 环境。请先安装 Miniforge/Miniconda/Anaconda，并确保 `conda` 在 `PATH` 中；然后按这个名字创建环境：
 
 ```bash
 conda create -n robotarm python=3.12
@@ -44,11 +44,50 @@ conda activate robotarm
 安装 Python 依赖：
 
 ```bash
-conda install -c conda-forge pinocchio scipy numpy transforms3d meshcat-python
-pip install paho-mqtt python-can piper_sdk
+conda install -c conda-forge numpy scipy pinocchio transforms3d meshcat-python
+pip install paho-mqtt python-can piper-sdk typing-extensions
 ```
 
-`demo/PICO/` 下的旧脚本可能还会用到 `spatialmath-python`、`roboticstoolbox-python`、`keyboard` 等额外依赖；当前主入口 `demo/meshcat/piper_web.py` 不依赖这些旧脚本。
+注意：
+
+- Pinocchio 的 conda 包名是 `pinocchio`，Python import 名也是 `pinocchio`。
+- Meshcat 的 conda-forge 包名是 `meshcat-python`，由 `pinocchio.visualize.MeshcatVisualizer` 调用。
+- Piper SDK 的 PyPI 包名建议写作 `piper-sdk`，Python import 名是 `piper_sdk`。老文档里的 `pip install piper_sdk` 通常也能被 pip 归一化处理，但这里统一使用 PyPI 项目名。
+- `python-can` 提供 `can` 模块，是 SDK 与 SocketCAN 通信的 Python 依赖。
+
+### 主控脚本依赖清单
+
+`demo/meshcat/piper_web.py` 的非标准库依赖如下：
+
+| import | 安装包 | 用途 |
+| --- | --- | --- |
+| `numpy` | `numpy` | 关节数组、矩阵运算 |
+| `scipy.spatial.transform.Rotation` | `scipy` | 欧拉角/旋转矩阵转换 |
+| `scipy.optimize.minimize` | `scipy` | SLSQP 逆运动学优化 |
+| `transforms3d.euler` | `transforms3d` | 四元数转欧拉角 |
+| `pinocchio` | `pinocchio` | URDF 模型加载、正运动学、Meshcat 可视化接口 |
+| `pinocchio.visualize.MeshcatVisualizer` | `pinocchio` + `meshcat-python` | 浏览器 3D 可视化 |
+| `paho.mqtt.client` | `paho-mqtt` | MQTT 收发 |
+| `piper_sdk` | `piper-sdk` | Piper 机械臂 CAN 控制接口 |
+| `can` | `python-can` | `piper-sdk`/本仓库 SDK 底层 CAN 通信 |
+| `typing_extensions` | `typing-extensions` | 本仓库 SDK 源码中的类型注解兼容依赖 |
+
+可以用下面的命令做一次 import 自检：
+
+```bash
+python -c "import numpy, scipy, transforms3d, pinocchio, meshcat, paho.mqtt.client, can, piper_sdk, typing_extensions; print('ok')"
+```
+
+### 旧脚本额外依赖
+
+`demo/PICO/` 和部分 `demo/V1/` 旧脚本不是当前主入口，但如果需要继续运行，还要额外安装：
+
+```bash
+conda install -c conda-forge spatialmath-python roboticstoolbox-python
+pip install keyboard
+```
+
+其中 `keyboard` 在 Linux 上读取全局键盘事件时可能需要 root 权限或额外的输入设备权限。
 
 ## 快速启动
 
