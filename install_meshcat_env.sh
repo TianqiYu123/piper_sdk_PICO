@@ -8,6 +8,7 @@ ENV_NAME="${ENV_NAME:-robotarm}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
 MINIFORGE_DIR="${MINIFORGE_DIR:-$HOME/miniforge3}"
 AUTO_INSTALL_CONDA="${AUTO_INSTALL_CONDA:-1}"
+SUDO_PASSWORD="${SUDO_PASSWORD:-}"
 
 CONDA_PACKAGES=(
   "numpy"
@@ -41,9 +42,29 @@ sudo_run() {
   if [ "$(id -u)" -eq 0 ]; then
     "$@"
   elif have_cmd sudo; then
-    sudo "$@"
+    if [ -n "$SUDO_PASSWORD" ]; then
+      printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' "$@"
+    else
+      sudo "$@"
+    fi
   else
     die "sudo is required to install system packages."
+  fi
+}
+
+ensure_sudo_access() {
+  if [ "$(id -u)" -eq 0 ]; then
+    return 0
+  fi
+
+  if ! have_cmd sudo; then
+    die "sudo is required to install system packages."
+  fi
+
+  if [ -n "$SUDO_PASSWORD" ]; then
+    printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' -v
+  else
+    sudo -v
   fi
 }
 
@@ -101,8 +122,9 @@ download_miniforge() {
 install_system_packages() {
   if have_cmd apt-get; then
     log "Installing system packages for SocketCAN and setup tools"
+    ensure_sudo_access
     sudo_run apt-get update
-    sudo_run apt-get install -y \
+    sudo_run env DEBIAN_FRONTEND=noninteractive apt-get install -y \
       ca-certificates \
       curl \
       wget \

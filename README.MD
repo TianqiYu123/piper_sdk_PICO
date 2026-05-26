@@ -25,12 +25,18 @@ python demo/meshcat/piper_web.py
 
 ## 运行环境
 
-建议在 Ubuntu 18.04/20.04/22.04 上运行。机械臂控制依赖 SocketCAN，Windows 只适合阅读和修改代码，不适合直接控制 CAN 设备。
+建议在 Ubuntu 18.04/20.04/22.04 上运行。Jetson Orin Nano / JetPack 6.2.2 属于当前部署目标环境。机械臂控制依赖 SocketCAN，Windows 只适合阅读和修改代码，不适合直接控制 CAN 设备。
 
 推荐直接运行一键安装脚本。它只安装 `demo/meshcat/piper_web.py` 需要的依赖，不安装 `demo/PICO/` 旧实验脚本依赖：
 
 ```bash
 bash install_meshcat_env.sh
+```
+
+如果通过非交互 SSH 部署，`sudo` 不能弹出密码输入框时，可以临时传入 `SUDO_PASSWORD`。不要把真实密码写进仓库文件：
+
+```bash
+SUDO_PASSWORD='your_sudo_password' bash install_meshcat_env.sh
 ```
 
 脚本会安装/更新：
@@ -43,6 +49,16 @@ bash install_meshcat_env.sh
 
 ```bash
 ENV_NAME=robotarm PYTHON_VERSION=3.12 MINIFORGE_DIR="$HOME/miniforge3" bash install_meshcat_env.sh
+```
+
+在 Jetson Orin Nano 上推荐的部署目录是 `/home/dm/robotarm/piper_sdk_PICO`。首次部署可按下面的方式拉取并安装：
+
+```bash
+mkdir -p /home/dm/robotarm
+cd /home/dm/robotarm
+git clone https://github.com/TianqiYu123/piper_sdk_PICO.git
+cd piper_sdk_PICO
+bash install_meshcat_env.sh
 ```
 
 下面是手动安装方式。`can_activate.sh` 使用 `ip`、`ethtool`、`can-utils`、`sudo`、`awk`、`grep`；`can_config.sh` 还可能调用 `modprobe gs_usb`：
