@@ -1,4 +1,22 @@
 #!/bin/bash
+set -e
+
+SUDO_PASSWORD="${SUDO_PASSWORD:-}"
+
+sudo_run() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        if [ -n "$SUDO_PASSWORD" ]; then
+            printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' "$@"
+        else
+            sudo "$@"
+        fi
+    else
+        echo "Error: sudo is required for CAN interface configuration."
+        exit 1
+    fi
+}
 
 # The default CAN name can be set by the user via command-line parameters.
 DEFAULT_CAN_NAME="${1:-can0}"
@@ -7,7 +25,7 @@ DEFAULT_CAN_NAME="${1:-can0}"
 DEFAULT_BITRATE="${2:-1000000}"
 
 # USB hardware address (optional parameter)
-USB_ADDRESS="${3}"
+USB_ADDRESS="${3:-}"
 echo "-------------------START-----------------------"
 # Check if ethtool is installed.
 if ! dpkg -l | grep -q "ethtool"; then
@@ -36,7 +54,7 @@ if [ "$CURRENT_CAN_COUNT" -ne "1" ]; then
         # Iterate through all CAN interfaces.
         for iface in $(ip -br link show type can | awk '{print $1}'); do
             # Use ethtool to retrieve bus-info.
-            BUS_INFO=$(sudo ethtool -i "$iface" | grep "bus-info" | awk '{print $2}')
+            BUS_INFO=$(sudo_run ethtool -i "$iface" | grep "bus-info" | awk '{print $2}')
             
             if [ -z "$BUS_INFO" ];then
                 echo "Error: Unable to retrieve bus-info for interface $iface."
@@ -66,7 +84,7 @@ if [ -n "$USB_ADDRESS" ]; then
     # Use ethtool to find the CAN interface corresponding to the USB hardware address.
     INTERFACE_NAME=""
     for iface in $(ip -br link show type can | awk '{print $1}'); do
-        BUS_INFO=$(sudo ethtool -i "$iface" | grep "bus-info" | awk '{print $2}')
+        BUS_INFO=$(sudo_run ethtool -i "$iface" | grep "bus-info" | awk '{print $2}')
         if [ "$BUS_INFO" == "$USB_ADDRESS" ]; then
             INTERFACE_NAME="$iface"
             break
@@ -88,7 +106,7 @@ else
         echo "Error: Unable to detect CAN interface."
         exit 1
     fi
-    BUS_INFO=$(sudo ethtool -i "$INTERFACE_NAME" | grep "bus-info" | awk '{print $2}')
+    BUS_INFO=$(sudo_run ethtool -i "$INTERFACE_NAME" | grep "bus-info" | awk '{print $2}')
     echo "Expected to configure a single CAN module, detected interface $INTERFACE_NAME with corresponding USB address $BUS_INFO."
 fi
 
@@ -96,7 +114,7 @@ fi
 IS_LINK_UP=$(ip link show "$INTERFACE_NAME" | grep -q "UP" && echo "yes" || echo "no")
 
 # Retrieve the bitrate of the current interface.
-CURRENT_BITRATE=$(ip -details link show "$INTERFACE_NAME" | grep -oP 'bitrate \K\d+')
+CURRENT_BITRATE=$(ip -details link show "$INTERFACE_NAME" | grep -oP 'bitrate \K\d+' || true)
 
 if [ "$IS_LINK_UP" == "yes" ] && [ "$CURRENT_BITRATE" -eq "$DEFAULT_BITRATE" ]; then
     echo "Interface $INTERFACE_NAME is already activated with a bitrate of $DEFAULT_BITRATE."
@@ -104,9 +122,9 @@ if [ "$IS_LINK_UP" == "yes" ] && [ "$CURRENT_BITRATE" -eq "$DEFAULT_BITRATE" ]; 
     # Check if the interface name matches the default name.
     if [ "$INTERFACE_NAME" != "$DEFAULT_CAN_NAME" ]; then
         echo "Rename interface $INTERFACE_NAME to $DEFAULT_CAN_NAME."
-        sudo ip link set "$INTERFACE_NAME" down
-        sudo ip link set "$INTERFACE_NAME" name "$DEFAULT_CAN_NAME"
-        sudo ip link set "$DEFAULT_CAN_NAME" up
+        sudo_run ip link set "$INTERFACE_NAME" down
+        sudo_run ip link set "$INTERFACE_NAME" name "$DEFAULT_CAN_NAME"
+        sudo_run ip link set "$DEFAULT_CAN_NAME" up
         echo "The interface has been renamed to $DEFAULT_CAN_NAME and reactivated."
     else
         echo "The interface name is already $DEFAULT_CAN_NAME."
@@ -120,17 +138,17 @@ else
     fi
     
     # Set the interface bitrate and activate it.
-    sudo ip link set "$INTERFACE_NAME" down
-    sudo ip link set "$INTERFACE_NAME" type can bitrate $DEFAULT_BITRATE
-    sudo ip link set "$INTERFACE_NAME" up
+    sudo_run ip link set "$INTERFACE_NAME" down
+    sudo_run ip link set "$INTERFACE_NAME" type can bitrate "$DEFAULT_BITRATE"
+    sudo_run ip link set "$INTERFACE_NAME" up
     echo "Interface $INTERFACE_NAME has been reset to bitrate $DEFAULT_BITRATE and activated."
     
     # Rename the interface to the default name.
     if [ "$INTERFACE_NAME" != "$DEFAULT_CAN_NAME" ]; then
         echo "Rename interface $INTERFACE_NAME to $DEFAULT_CAN_NAME."
-        sudo ip link set "$INTERFACE_NAME" down
-        sudo ip link set "$INTERFACE_NAME" name "$DEFAULT_CAN_NAME"
-        sudo ip link set "$DEFAULT_CAN_NAME" up
+        sudo_run ip link set "$INTERFACE_NAME" down
+        sudo_run ip link set "$INTERFACE_NAME" name "$DEFAULT_CAN_NAME"
+        sudo_run ip link set "$DEFAULT_CAN_NAME" up
         echo "The interface has been renamed to $DEFAULT_CAN_NAME and reactivated."
     fi
 fi

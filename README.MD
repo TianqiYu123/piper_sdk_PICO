@@ -132,6 +132,12 @@ conda activate robotarm
 python demo/meshcat/piper_web.py
 ```
 
+如果是在非交互 SSH 命令或其他不会弹出密码输入框的环境里启动，可以临时传入 `SUDO_PASSWORD`，它会被 `can_activate.sh` 继承：
+
+```bash
+SUDO_PASSWORD='your_sudo_password' python demo/meshcat/piper_web.py
+```
+
 或者使用包装脚本：
 
 ```bash
@@ -215,6 +221,12 @@ PICO 模式会把左手坐标系转换为右手坐标系，并在 `trigger = 1` 
 
 ```bash
 bash can_activate.sh can0 1000000
+```
+
+非交互 SSH 下可以这样执行：
+
+```bash
+SUDO_PASSWORD='your_sudo_password' bash can_activate.sh can0 1000000
 ```
 
 如果机器插了多个 CAN 设备，需要指定 USB 硬件地址：
