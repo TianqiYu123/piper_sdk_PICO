@@ -1,237 +1,196 @@
-# Piper 机械臂 SDK使用说明
+# Piper SDK PICO
 
-[EN](README(EN).MD)
+这个仓库基于 Piper 机械臂 SDK，当前主要用于通过 MQTT 控制 Piper 机械臂，并用 Meshcat 在浏览器中显示机械臂模型。
 
-|Ubuntu |STATE|
-|---|---|
-|![ubuntu18.04](https://img.shields.io/badge/Ubuntu-18.04-orange.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
-|![ubuntu20.04](https://img.shields.io/badge/Ubuntu-20.04-orange.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
-|![ubuntu22.04](https://img.shields.io/badge/Ubuntu-22.04-orange.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
+当前 `master` 的主运行入口是：
 
-quickstart:
-
-使用mqtt控制机械臂的demo在demo/PICO 文件夹中
-
-pico_receive.py 用于接受mqtt信号并转为机械臂的输入信号，主要用于PICO遥操作机械臂
-
-piper_pico.py 为机械臂PICO遥操作代码
-
-piper_pico_meshcat.py 在piper_pico.py基础上增加网页端机械臂可视化
-
-send_mqtt_message.py   用键盘模拟网页端输入，发送mqtt控制信号，注意此信号对应piper_web.py(欧拉角), 不使用于piper_pico.py(四元数)
-
-piper_web.py           web端mqtt信号控制机械臂
-
-mqtt信号格式
-
-{"info": [0.01, 1.54, 0.01, 0.0,  0.0,   0.0, 0.0,  1.0, 0.0, 0.0, 0, 0, 0, 0, 0.0]}
-
-{"info": [x,    y,    z,    roll, pitch, yaw, 0.0, grip, 0.0, 0.0, 0, 0, 0, 0, 0.0]}
-
-Test:
-
-|PYTHON |STATE|
-|---|---|
-|![python3.6](https://img.shields.io/badge/Python-3.6-blue.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
-|![python3.8](https://img.shields.io/badge/Python-3.8-blue.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
-|![python3.10](https://img.shields.io/badge/Python-3.10-blue.svg)|![Pass](https://img.shields.io/badge/Pass-blue.svg)|
-
-本SDK用于接收can数据帧，然后处理为自定义数据类型，没有包括数据偏移帧
-
-|说明 |文档|
-|---|---|
-|接口函数的详细说明|[Interface_V1 README](./asserts/V1/INTERFACE_V1.MD) <br> [Interface_V2 README](./asserts/V2/INTERFACE_V2.MD)|
-|协议解析部分说明|[Protocol_V1 README](./asserts/V1/PROTOCOL_V1.MD) <br> [Protocol_V2 README](./asserts/V2/PROTOCOL_V2.MD)|
-|消息部分说明|[Msgs_V1 README](./asserts/V1/MSGS_V1.MD) <br> [Msgs_V2 README](./asserts/V2/MSGS_V2.MD)|
-|机械臂DEMO列举|[DMEO](./asserts/SDK_DEMO.MD)|
-|机械臂DEMO|[`piper_sdk/demo/V1`](./demo/V1/README.MD) <br> [`piper_sdk/demo/V2`](./demo/V2/README.MD)|
-|双臂的主从配置和读取数据|[double_piper](./asserts/double_piper.MD)|
-|使用pyQT5的开源UI|[Piper_sdk_ui](<https://github.com/agilexrobotics/Piper_sdk_ui.git>)|
-|Q&A|[Q&A](./asserts/Q&A.MD)|
-
-
-## 1 软件安装方法
-
-### 1.1 安装依赖
-
-#### 1.1.1 建议配置虚拟python环境安装roboticstoolbox
-安装miniconda
-https://www.anaconda.com/docs/getting-started/miniconda/install
-或者mamba（更快速，节约空间，如果使用mamba只需将后面所有conda改成mamba）
-https://github.com/conda-forge/miniforge
-```shell
-curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-```
-or
-```shell
-wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+```bash
+python demo/meshcat/piper_web.py
 ```
 
-```shell
-bash Miniforge3-$(uname)-$(uname -m).sh
+自动启动脚本 `piper.sh` 也运行这个文件。旧的 `demo/PICO/piper_web.py` 已从 `master` 删除；如需查看删除前版本，请切到 `backup-pico-piper-web-before-delete` 分支。
+
+## 当前状态
+
+| 内容 | 当前入口 |
+| --- | --- |
+| Web/MQTT 控制 + Meshcat 可视化 | `demo/meshcat/piper_web.py` |
+| systemd 启动脚本模板 | `piper_service.txt` |
+| 启动包装脚本 | `piper.sh` |
+| CAN 单设备激活 | `can_activate.sh` |
+| CAN 多设备配置 | `can_config.sh` |
+| SDK 接口/协议/消息源码 | `interface/`, `protocol/`, `piper_msgs/` |
+| 上游 V1/V2 示例 | `demo/V1/`, `demo/V2/` |
+| PICO 旧实验脚本 | `demo/PICO/` |
+
+## 运行环境
+
+建议在 Ubuntu 18.04/20.04/22.04 上运行。机械臂控制依赖 SocketCAN，Windows 只适合阅读和修改代码，不适合直接控制 CAN 设备。
+
+需要安装系统工具：
+
+```bash
+sudo apt update
+sudo apt install can-utils ethtool iproute2
 ```
 
-conda/mamba环境安装完成后创建新的conda环境
-```shell
+当前 `piper.sh` 会查找并激活名为 `robotarm` 的 conda 环境。建议按这个名字创建环境：
+
+```bash
 conda create -n robotarm python=3.12
-```
-激活conda环境
-```shell
 conda activate robotarm
 ```
-#### 1.1.1 在conda中安装其他依赖
-```shell
-conda install pinocchio -c conda-forge
 
-pip3 install paho-mqtt
+安装 Python 依赖：
 
-conda install conda-forge::transforms3d
-
-conda install conda-forge::spatialmath-python
-
-conda install conda-forge::meshcat-python
+```bash
+conda install -c conda-forge pinocchio scipy numpy transforms3d meshcat-python
+pip install paho-mqtt python-can piper_sdk
 ```
 
+`demo/PICO/` 下的旧脚本可能还会用到 `spatialmath-python`、`roboticstoolbox-python`、`keyboard` 等额外依赖；当前主入口 `demo/meshcat/piper_web.py` 不依赖这些旧脚本。
 
-注: python-can版本应高于3.3.4
+## 快速启动
 
-```shell
-pip3 install python-can
+在仓库根目录执行。当前主控脚本内部会调用 `bash can_activate.sh can0 1000000`，因此运行用户需要有配置 CAN 的权限；如果脚本需要 `sudo`，终端可能会提示输入密码。
+
+```bash
+conda activate robotarm
+python demo/meshcat/piper_web.py
 ```
 
-```shell
-pip3 install piper_sdk
+或者使用包装脚本：
+
+```bash
+bash piper.sh
 ```
 
-查看`piper_sdk`细节，比如安装路径，版本等信息
+`piper.sh` 的行为：
 
-```shell
-pip3 show piper_sdk
+- 启动后先等待 30 秒。
+- 自动向上查找包含 `demo/meshcat/piper_web.py` 的仓库目录。
+- 激活 `robotarm` conda 环境。
+- 循环运行 `demo/meshcat/piper_web.py`，脚本退出后会自动重启。
+
+## MQTT 控制
+
+当前主控脚本使用硬编码 MQTT 配置：
+
+| 配置 | 值 |
+| --- | --- |
+| Broker | `47.96.170.89` |
+| Port | `8003` |
+| 默认模式 | `web` |
+| Web topic | `arm/pose/web_control` |
+| PICO topic | `arm/pose/robot_test_arm` |
+
+消息格式固定为 JSON，`info` 必须是 15 个元素。Web 模式字段顺序如下：
+
+```text
+[x, y, z, rx, ry, rz, unused, trigger, joystickX, joystickY, joystickClick, buttonA, buttonB, grip, temp]
 ```
 
-0.0.x 为机械臂V1.5-2固件版本前的sdk支持
+示例：
 
-若要卸载
-
-```shell
-pip3 uninstall piper_sdk
+```json
+{
+  "info": [0.0, 0.0, 0.001, 0.0, 0.0, 0.01, 0.0, 0, 0.0, 0.0, 0, 0, 0, 0, 0]
+}
 ```
 
-### 1.2 安装can工具
+Web 模式下，前 6 个元素被当作末端位姿增量：
 
-```shell
-sudo apt update && sudo apt install can-utils ethtool
+| 字段 | 含义 |
+| --- | --- |
+| `x`, `y`, `rx`, `ry` | 当前代码会接收并累加，但不直接用于发给机械臂 |
+| `z` | 映射到 joint2/joint3/joint5 的联动高度变化 |
+| `rz` | 映射到 joint1 旋转 |
+| `buttonA = 1` | 切换到 PICO 模式 |
+| `buttonB = 1` | 切换回 Web 模式 |
+| `temp = 1` | 复位到初始姿态 |
+
+PICO 模式下，前 7 个元素是位姿和四元数，字段顺序如下：
+
+```text
+[x, y, z, qx, qy, qz, qw, trigger, joystickX, joystickY, joystickClick, buttonA, buttonB, grip, temp]
 ```
 
-这两个工具用于配置 CAN 模块
+PICO 模式会把左手坐标系转换为右手坐标系，并在 `trigger = 1` 时根据第一次按下的位置做校准，然后通过 Pinocchio + SLSQP 逆解生成关节角度。`trigger = 0` 会退出当前遥操作状态并回到初始姿态。
 
-如果执行bash脚本出现`ip: command not found`，请安装ip指令，一般是`sudo apt-get install iproute2`
+注意：`demo/PICO/send_mqtt_message.py` 目前发布到 `arm/pose/test`，而主控脚本默认监听 `arm/pose/web_control`。如果用它测试当前主入口，需要先把脚本里的 topic 改成 `arm/pose/web_control`，或者用自己的 MQTT 客户端发布到正确 topic。
 
-## 2 快速使用
+## 机械臂控制流程
 
-### 2.1 使能can模块
+`demo/meshcat/piper_web.py` 的启动流程：
 
-#### 2.1.1 激活单个can模块, **此处使用`can_activate.sh`脚本**
+1. 调用 `can_activate.sh` 激活 `can0`，波特率 `1000000`。
+2. 连接 MQTT broker。
+3. 创建 `C_PiperInterface("can0")` 并连接 CAN 端口。
+4. 使能 6 个关节和夹爪。
+5. 读取 `demo/meshcat/piper_description/urdf/piper_B2.urdf`。
+6. 启动 Meshcat viewer。
+7. 循环读取 MQTT 最新消息，并发送 `MotionCtrl_2`、`JointCtrl`、`GripperCtrl` 控制机械臂。
 
-##### 1) pc只插入一个usb转can模块
+控制脚本默认假设 CAN 设备名是 `can0`。如果你的设备名不同，需要同步修改：
 
-直接执行
+- `demo/meshcat/piper_web.py` 中的 `run_can_activation_script()`
+- `demo/meshcat/piper_web.py` 中的 `C_PiperInterface("can0")`
+
+## CAN 配置
+
+单个 CAN 设备：
 
 ```bash
 bash can_activate.sh can0 1000000
 ```
-使能机械臂
-```bash
-python3 demo/V1/piper_enable.py
-```
 
-VR眼镜控制程序
-```bash
-python3 demo/V1/piper_end_pose_control.py
-```
-注：不同电脑性能不同，可能需要修改 demo/V1/mqtt_receive.py 中 sol = self.robot.ik_LM 逆运动学求解的参数
-
-
-sudo /home/tq/miniforge3/envs/robotarm/bin/python demo/PICO/send_mqtt_message.py
-
-##### 2) pc插入多个usb转can模块， 但每次只激活一个can模块
-
-注： 此处用于同时使用机械臂和底盘的的情况
-
-(1) 查看can模块插在usb端口的硬件地址。拔掉所有can模块，只将连接到机械臂的can模块插入PC，执行
-
-```shell
-sudo ethtool -i can0 | grep bus
-```
-
-并记录下`bus-info`的数值，例如`1-2:1.0`
-
-注：**一般第一个插入的can模块会默认是can0，如果没有查询到can可以使用`bash find_all_can_port.sh`来查看刚才usb地址对应的can名称**
-
-(2) 激活can设备。假设上面的操作记录的`bus-info`数值为`1-2:1.0`，执行：
+如果机器插了多个 CAN 设备，需要指定 USB 硬件地址：
 
 ```bash
 bash can_activate.sh can_piper 1000000 "1-2:1.0"
 ```
 
-注：**1-2:1.0硬件编码的usb端口插入的can设备，名字被重命名为can_piper，波特率为1000000，并激活**
+查看 CAN 设备 USB 地址：
 
-(3) 检查是否激活成功
-
-执行`ifconfig`查看是否有`can_piper`，如果有则can模块设置成功
-
-#### 2.1.2 同时激活多个can模块，**此处使用`can_config.sh`脚本**
-
-##### 1) 逐个拔插can模块并一一记录每个模块对应的usb口硬件地址
-
-在`can_config.sh`中，`EXPECTED_CAN_COUNT`参数为想要激活的can模块数量，现在假设为2
-
-(1) 然后can模块中的其中一个单独插入PC，执行
-
-```shell
+```bash
 sudo ethtool -i can0 | grep bus
 ```
 
-并记录下`bus-info`的数值例如`1-2:1.0`
+如果需要同时配置多个 CAN 设备，使用 `can_config.sh`，并先在脚本内配置每个 USB 口对应的 CAN 名称和波特率。
 
-(2) 接着插入下一个can模块，注意**不可以**与上次can模块插入的usb口相同，然后执行
+## 开机启动
 
-```shell
-sudo ethtool -i can1 | grep bus
+`piper_service.txt` 是 systemd 服务模板。使用前需要把路径改成你机器上的实际仓库路径，并确认服务环境能找到 conda 和 `robotarm` 环境。
+
+常用命令：
+
+```bash
+sudo systemctl enable piper_service.service
+sudo systemctl start piper_service.service
+sudo systemctl status piper_service.service
+sudo journalctl -u piper_service.service
 ```
 
-注：**一般第一个插入的can模块会默认是can0，第二个为can1，如果没有查询到can可以使用`bash find_all_can_port.sh`来查看刚才usb地址对应的can名称**
+如果 systemd 下 CAN 激活失败，优先检查服务是否有权限执行 `sudo ip link ...`、`sudo ethtool ...`，或改为由系统启动脚本提前完成 CAN 配置。
 
-##### 2) 预定义USB 端口、目标接口名称及其比特率
+## 重要注意事项
 
-假设上面的操作记录的`bus-info`数值分别为`1-2:1.0`、`1-4:1.0`，则将下面的`USB_PORTS["1-9:1.0"]="can_left:1000000"`的中括号内部的双引号内部的参数换为`1-2:1.0`和`1-4:1.0`.
+- 启动主控脚本前，确认机械臂急停、供电、CAN 接线和 USB-CAN 模块状态正常。
+- `demo/meshcat/piper_web.py` 会直接发送关节控制指令，请先在安全空间内低速测试。
+- 当前 MQTT broker、topic、CAN 名称、URDF 文件名都写在代码里；部署到不同环境时应先检查这些常量。
+- Web 模式只对 `z` 和 `rz` 做了实际关节映射，其他位姿字段暂时不是完整 IK 控制。
+- `X_LIMIT/Y_LIMIT/Z_LIMIT` 等限位常量目前没有完整接入控制逻辑，实际运行前建议增加限位保护。
+- 如果终端出现 `Message NOT sent`，通常是 CAN 设备没有正确连接机械臂，先检查接线和供电，再重新激活 CAN。
 
-最终结果为：
+## 参考文档
 
-`USB_PORTS["1-2:1.0"]="can_left:1000000"`
-
-`USB_PORTS["1-4:1.0"]="can_right:1000000"`
-
-注：**1-2:1.0硬件编码的usb端口插入的can设备，名字被重命名为can_left，波特率为1000000，并激活**
-
-##### 3) 看终端输出是否激活成功
-
-执行`bash can_config.sh`
-
-##### 4) 查看can是否设置成功
-
-执行`ifconfig`查看是不是有`can_left`和`can_right`
-
-## 注意事项
-
-- 需要先激活can设备，并且设置正确的波特率，才可以读取机械臂消息或者控制机械臂
-- C_PiperInterface 接口类在实例化时可传入激活的can路由名称，这个名称可以通过`ifconfig`得到
-- 有时执行can发送，终端反馈`Message NOT sent`，是can模块没有成功连接设备，先检查模块与机械臂的连接状态，然后将机械臂断电后上电，再尝试发送
-- sdk的interface在创建实例后会检测是否激活自带的can模块，如果是其它can设备，可以将第二个形参设定为False，如：`piper = C_PiperInterface_V2("can0",False)`
-- **机械臂的mit协议控制单关节电机为高级功能,使用时需注意,此协议的使用不当会导致机械臂损坏！！！**
-
-## 联系我们
-
-您可以在github上提issue
-
-也可以加入discord<https://discord.gg/wrKYTxwDBd>
+| 内容 | 文档 |
+| --- | --- |
+| V1 接口说明 | `asserts/V1/INTERFACE_V1.MD` |
+| V2 接口说明 | `asserts/V2/INTERFACE_V2.MD` |
+| V1 协议说明 | `asserts/V1/PROTOCOL_V1.MD` |
+| V2 协议说明 | `asserts/V2/PROTOCOL_V2.MD` |
+| V1 消息说明 | `asserts/V1/MSGS_V1.MD` |
+| V2 消息说明 | `asserts/V2/MSGS_V2.MD` |
+| 常见问题 | `asserts/Q&A.MD` |
+| 双臂配置 | `asserts/double_piper.MD` |
