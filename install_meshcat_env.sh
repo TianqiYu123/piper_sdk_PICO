@@ -115,7 +115,7 @@ download_miniforge() {
   fi
 
   log "Installing Miniforge to $MINIFORGE_DIR"
-  bash "$installer" -b -p "$MINIFORGE_DIR"
+  bash "$installer" -b -p "$MINIFORGE_DIR" >&2
   rm -f "$installer"
 }
 
