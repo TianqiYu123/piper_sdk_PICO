@@ -2,6 +2,7 @@
 set -e
 
 SUDO_PASSWORD="${SUDO_PASSWORD:-}"
+USB_CAN_RESET_ON_START="${USB_CAN_RESET_ON_START:-1}"
 
 sudo_run() {
     if [ "$(id -u)" -eq 0 ]; then
@@ -16,6 +17,28 @@ sudo_run() {
         echo "Error: sudo is required for CAN interface configuration."
         exit 1
     fi
+}
+
+reset_usb_device() {
+    local usb_addr="$1"
+    local dev_path="/sys/bus/usb/devices/${usb_addr}"
+
+    if [ ! -d "$dev_path" ]; then
+        echo "Warning: USB device path not found: $dev_path"
+        return 1
+    fi
+
+    if [ ! -w "${dev_path}/authorized" ]; then
+        echo "Warning: USB authorized node is not writable: ${dev_path}/authorized"
+        return 1
+    fi
+
+    echo "Resetting USB-CAN device at ${usb_addr}..."
+    echo 0 | sudo_run tee "${dev_path}/authorized" >/dev/null
+    sleep 1
+    echo 1 | sudo_run tee "${dev_path}/authorized" >/dev/null
+    sleep 2
+    return 0
 }
 
 # The default CAN name can be set by the user via command-line parameters.
@@ -80,6 +103,9 @@ fi
 
 if [ -n "$USB_ADDRESS" ]; then
     echo "Detected USB hardware address parameter: $USB_ADDRESS"
+    if [ "$USB_CAN_RESET_ON_START" = "1" ]; then
+        reset_usb_device "$USB_ADDRESS" || echo "Warning: USB reset failed or skipped, continuing..."
+    fi
     
     # Use ethtool to find the CAN interface corresponding to the USB hardware address.
     INTERFACE_NAME=""
