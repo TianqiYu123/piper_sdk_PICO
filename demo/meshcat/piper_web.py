@@ -37,6 +37,9 @@ MQTT_TOPIC_WEB = "arm/pose/web_control"  # Topic for Web messages
 FACTOR = 57290
 INITIAL_END_POSE = [0.2, 0, 0.18, 0, pi / 2, 0]  # Initial end-effector pose
 NUM_JOINTS = 6  # Number of joints you are controlling
+CAN_IFACE = "can0"
+CAN_BITRATE = "1000000"
+CAN_USB_ADDRESS = "1-2.3:1.0"
 
 # Define limits for the end effector pose (adjust as needed)
 X_LIMIT = [0.0, 0.3]
@@ -392,12 +395,85 @@ def inverse_kinematics(model, data, target_pose, q_init=None):
 
 
 def run_can_activation_script():
-    """Runs the can_activate.sh script."""
+    """Runs the can_activate.sh script with a strict USB-CAN address check."""
+    can_iface = find_can_interface_by_usb_address(CAN_USB_ADDRESS)
+    if can_iface != CAN_IFACE:
+        print(
+            f"CAN interface mismatch: expected {CAN_IFACE}, "
+            f"but USB device {CAN_USB_ADDRESS} is mapped to {can_iface}."
+        )
+        sys.exit(1)
+
     try:
-        subprocess.run(["bash", "can_activate.sh", "can0", "1000000"], check=True)
+        subprocess.run(
+            ["bash", "can_activate.sh", CAN_IFACE, CAN_BITRATE, CAN_USB_ADDRESS],
+            check=True,
+        )
     except subprocess.CalledProcessError as e:
         #logging.error(f"Error running can_activate.sh: {e}")
         sys.exit(1)  # Exit if the script fails
+
+
+def find_can_interface_by_usb_address(expected_usb_address: str) -> str:
+    """Finds the CAN interface whose bus-info matches the expected USB address."""
+    try:
+        result = subprocess.run(
+            ["ip", "-br", "link", "show", "type", "can"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError:
+        print("Unable to list CAN interfaces.")
+        sys.exit(1)
+
+    interfaces = [line.split()[0] for line in result.stdout.splitlines() if line.strip()]
+    if not interfaces:
+        print("No CAN interfaces detected.")
+        sys.exit(1)
+
+    for iface in interfaces:
+        try:
+            info = subprocess.run(
+                ["ethtool", "-i", iface],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError:
+            continue
+
+        bus_info = ""
+        for line in info.stdout.splitlines():
+            if line.startswith("bus-info:"):
+                bus_info = line.split(":", 1)[1].strip()
+                break
+
+        if bus_info == expected_usb_address:
+            return iface
+
+    print(
+        f"Expected USB-CAN device {expected_usb_address} was not found. "
+        "Please verify cable and USB address."
+    )
+    print("Detected CAN interfaces and bus-info:")
+    for iface in interfaces:
+        try:
+            info = subprocess.run(
+                ["ethtool", "-i", iface],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            bus_info = ""
+            for line in info.stdout.splitlines():
+                if line.startswith("bus-info:"):
+                    bus_info = line.split(":", 1)[1].strip()
+                    break
+            print(f"  {iface}: {bus_info}")
+        except subprocess.CalledProcessError:
+            print(f"  {iface}: <unable to read bus-info>")
+    sys.exit(1)
 
 
 def initialize_robot(piper: C_PiperInterface):
@@ -487,7 +563,7 @@ def main():
     mqtt_handler = MQTTHandler(MQTT_BROKER, MQTT_PORT)  # Use random client ID
     mqtt_handler.connect()
 
-    piper = C_PiperInterface("can0")
+    piper = C_PiperInterface(CAN_IFACE)
     piper.ConnectPort()
 
     initialize_robot(piper)
