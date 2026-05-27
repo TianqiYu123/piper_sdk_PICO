@@ -28,11 +28,6 @@ reset_usb_device() {
         return 1
     fi
 
-    if [ ! -w "${dev_path}/authorized" ]; then
-        echo "Warning: USB authorized node is not writable: ${dev_path}/authorized"
-        return 1
-    fi
-
     echo "Resetting USB-CAN device at ${usb_addr}..."
     echo 0 | sudo_run tee "${dev_path}/authorized" >/dev/null
     sleep 1
